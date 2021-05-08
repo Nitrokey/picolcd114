@@ -6,7 +6,7 @@
 
 pub mod instruction;
 
-use crate::instruction::Instruction;
+use crate::instruction::Instruction::*;
 use core::iter::once;
 
 use display_interface::DataFormat::{U16BEIter, U8Iter};
@@ -35,26 +35,9 @@ where
     // Visible size (x, y)
     size_x: u16,
     size_y: u16,
-    // Current orientation
-    orientation: Orientation,
-}
-
-///
-/// Display orientation.
-///
-#[repr(u8)]
-#[derive(Copy, Clone)]
-pub enum Orientation {
-    Portrait = 0b0000_0000,         // no inverting
-    Landscape = 0b0110_0000,        // invert column and page/column order
-    PortraitSwapped = 0b1100_0000,  // invert page and column order
-    LandscapeSwapped = 0b1010_0000, // invert page and page/column order
-}
-
-impl Default for Orientation {
-    fn default() -> Self {
-        Self::Portrait
-    }
+    // Offset to 'true origin' position of controller
+    off_x: u16,
+    off_y: u16
 }
 
 ///
@@ -81,13 +64,12 @@ where
     /// * `size_x` - x axis resolution of the display in pixels
     /// * `size_y` - y axis resolution of the display in pixels
     ///
-    pub fn new(di: DI, rst: RST, size_x: u16, size_y: u16) -> Self {
+    pub fn new(di: DI, rst: RST, size_x: u16, size_y: u16, off_x: u16, off_y: u16) -> Self {
         Self {
             di,
             rst,
-            size_x,
-            size_y,
-            orientation: Orientation::default(),
+            size_x, size_y,
+            off_x, off_y
         }
     }
 
@@ -100,23 +82,23 @@ where
     ///
     pub fn init(&mut self, delay_source: &mut impl DelayUs<u32>) -> Result<(), Error<PinE>> {
         self.hard_reset(delay_source)?;
-        self.write_command(Instruction::SWRESET)?; // reset display
-        delay_source.delay_us(150_000);
-        self.write_command(Instruction::SLPOUT)?; // turn off sleep
-        delay_source.delay_us(10_000);
-        self.write_command(Instruction::INVOFF)?; // turn off invert
-        self.write_command(Instruction::VSCRDER)?; // vertical scroll definition
-        self.write_data(&[0u8, 0u8, 0x14u8, 0u8, 0u8, 0u8])?; // 0 TSA, 320 VSA, 0 BSA
-        self.write_command(Instruction::MADCTL)?; // left -> right, bottom -> top RGB
-        self.write_data(&[0b0000_0000])?;
-        self.write_command(Instruction::COLMOD)?; // 16bit 65k colors
-        self.write_data(&[0b0101_0101])?;
-        self.write_command(Instruction::INVON)?; // hack?
-        delay_source.delay_us(10_000);
-        self.write_command(Instruction::NORON)?; // turn on display
-        delay_source.delay_us(10_000);
-        self.write_command(Instruction::DISPON)?; // turn on display
-        delay_source.delay_us(10_000);
+	self.write_command(MADCTL)?; self.write_data(&[0x70])?;
+	self.write_command(COLMOD)?; self.write_data(&[0x55])?;
+	self.write_command(PORCTRL)?; self.write_data(&[0x0c, 0x0c, 0x00, 0x33, 0x33])?;
+	self.write_command(GCTRL)?; self.write_data(&[0x35])?;
+	self.write_command(VCOMS)?; self.write_data(&[0x19])?;
+	self.write_command(LCMCTRL)?; self.write_data(&[0x2c])?;
+	self.write_command(VDVVRHEN)?; self.write_data(&[0x01])?;
+	self.write_command(VRHS)?; self.write_data(&[0x12])?;
+	self.write_command(VDVS)?; self.write_data(&[0x20])?;
+	self.write_command(FRCTRL2)?; self.write_data(&[0x0f])?;
+	self.write_command(PWCTRL1)?; self.write_data(&[0xa4, 0xa1])?;
+	self.write_command(PVGAMCTRL)?; self.write_data(&[0xd0, 0x04, 0x0d, 0x11, 0x13, 0x2b, 0x3f, 0x54, 0x4c, 0x18, 0x0d, 0x0b, 0x1f, 0x23])?;
+	self.write_command(NVGAMCTRL)?; self.write_data(&[0xd0, 0x04, 0x0c, 0x11, 0x13, 0x2c, 0x3f, 0x44, 0x51, 0x2f, 0x1f, 0x1f, 0x20, 0x23])?;
+	self.write_command(INVON)?;
+	self.write_command(SLPOUT)?;
+	self.write_command(DISPON)?;
+        delay_source.delay_us(1_000);
         Ok(())
     }
 
@@ -139,23 +121,6 @@ where
     }
 
     ///
-    /// Returns currently set orientation
-    ///
-    pub fn orientation(&self) -> Orientation {
-        self.orientation
-    }
-
-    ///
-    /// Sets display orientation
-    ///
-    pub fn set_orientation(&mut self, orientation: Orientation) -> Result<(), Error<PinE>> {
-        self.write_command(Instruction::MADCTL)?;
-        self.write_data(&[orientation as u8])?;
-        self.orientation = orientation;
-        Ok(())
-    }
-
-    ///
     /// Sets a pixel color at the given coords.
     ///
     /// # Arguments
@@ -166,7 +131,7 @@ where
     ///
     pub fn set_pixel(&mut self, x: u16, y: u16, color: u16) -> Result<(), Error<PinE>> {
         self.set_address_window(x, y, x, y)?;
-        self.write_command(Instruction::RAMWR)?;
+        self.write_command(RAMWR)?;
         self.di
             .send_data(U16BEIter(&mut once(color)))
             .map_err(|_| Error::DisplayError)?;
@@ -197,7 +162,7 @@ where
         T: IntoIterator<Item = u16>,
     {
         self.set_address_window(sx, sy, ex, ey)?;
-        self.write_command(Instruction::RAMWR)?;
+        self.write_command(RAMWR)?;
         self.di
             .send_data(U16BEIter(&mut colors.into_iter()))
             .map_err(|_| Error::DisplayError)
@@ -210,7 +175,7 @@ where
     /// * `offset` - scroll offset in pixels
     ///
     pub fn set_scroll_offset(&mut self, offset: u16) -> Result<(), Error<PinE>> {
-        self.write_command(Instruction::VSCAD)?;
+        self.write_command(VSCSAD)?;
         self.write_data(&offset.to_be_bytes())
     }
 
@@ -222,7 +187,7 @@ where
         (self.di, self.rst)
     }
 
-    fn write_command(&mut self, command: Instruction) -> Result<(), Error<PinE>> {
+    fn write_command(&mut self, command: instruction::Instruction) -> Result<(), Error<PinE>> {
         self.di
             .send_commands(U8Iter(&mut once(command as u8)))
             .map_err(|_| Error::DisplayError)?;
@@ -243,11 +208,15 @@ where
         ex: u16,
         ey: u16,
     ) -> Result<(), Error<PinE>> {
-        self.write_command(Instruction::CASET)?;
-        self.write_data(&sx.to_be_bytes())?;
-        self.write_data(&ex.to_be_bytes())?;
-        self.write_command(Instruction::RASET)?;
-        self.write_data(&sy.to_be_bytes())?;
-        self.write_data(&ey.to_be_bytes())
+        let sx0 = self.off_x + sx;
+        let sy0 = self.off_y + sy;
+        let ex0 = self.off_x + ex;
+        let ey0 = self.off_y + ey;
+        self.write_command(CASET)?;
+        self.write_data(&sx0.to_be_bytes())?;
+        self.write_data(&ex0.to_be_bytes())?;
+        self.write_command(RASET)?;
+        self.write_data(&sy0.to_be_bytes())?;
+        self.write_data(&ey0.to_be_bytes())
     }
 }
