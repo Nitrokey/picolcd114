@@ -108,3 +108,21 @@ where
         self.set_pixels(0, 0, self.size_x, self.size_y, colors)
     }
 }
+
+pub trait BlitTarget {
+	type Error;
+
+	fn blit(&mut self, sx: u16, sy: u16, ex: u16, ey: u16, data: &[u8]) -> Result<(), Self::Error>;
+}
+
+impl<DI, RST, PinE> BlitTarget for ST7789<DI, RST>
+where
+    DI: WriteOnlyDataCommand,
+    RST: OutputPin<Error = PinE>,
+{
+	type Error = Error<PinE>;
+
+	fn blit(&mut self, sx: u16, sy: u16, ex: u16, ey: u16, data: &[u8]) -> Result<(), Self::Error> {
+		self.blit_pixels(sx, sy, ex, ey, data)
+	}
+}

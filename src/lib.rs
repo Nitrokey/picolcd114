@@ -169,6 +169,35 @@ where
     }
 
     ///
+    /// Blits raw pixel data to the display. The burden of choosing the correct
+    /// pixel format is completely on the caller - on the other hand, this is
+    /// probably the only way to get acceptable (or *any*, for that matter)
+    /// DMA performance.
+    ///
+    /// # Arguments
+    ///
+    /// * `sx` - x coordinate start
+    /// * `sy` - y coordinate start
+    /// * `ex` - x coordinate end
+    /// * `ey` - y coordinate end
+    /// * `data` - u8 slice containing raw pixel data
+    ///
+    pub fn blit_pixels(
+        &mut self,
+        sx: u16,
+        sy: u16,
+        ex: u16,
+        ey: u16,
+        data: &[u8]
+    ) -> Result<(), Error<PinE>> {
+        use display_interface::DataFormat::U8;
+
+        self.set_address_window(sx, sy, ex, ey)?;
+        self.write_command(RAMWR)?;
+        self.di.send_data(U8(data)).map_err(|_| Error::DisplayError)
+    }
+
+    ///
     /// Sets scroll offset "shifting" the displayed picture
     /// # Arguments
     ///
