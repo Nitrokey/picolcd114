@@ -83,16 +83,16 @@ where
     pub fn init(&mut self, delay_source: &mut impl DelayUs<u32>) -> Result<(), Error<PinE>> {
         self.hard_reset(delay_source)?;
 	self.write_command(MADCTL)?; self.write_data(&[0x70])?;
-	self.write_command(COLMOD)?; self.write_data(&[0x55])?;
-	self.write_command(PORCTRL)?; self.write_data(&[0x0c, 0x0c, 0x00, 0x33, 0x33])?;
-	self.write_command(GCTRL)?; self.write_data(&[0x35])?;
+	self.write_command(COLMOD)?; self.write_data(&[0x55])?; // 16bpp
+	self.write_command(PORCTRL)?; self.write_data(&[0x0c, 0x0c, 0x00, 0x33, 0x33])?; // reset default
+	self.write_command(GCTRL)?; self.write_data(&[0x35])?; // reset default
 	self.write_command(VCOMS)?; self.write_data(&[0x19])?;
-	self.write_command(LCMCTRL)?; self.write_data(&[0x2c])?;
-	self.write_command(VDVVRHEN)?; self.write_data(&[0x01])?;
+	self.write_command(LCMCTRL)?; self.write_data(&[0x2c])?; // reset default
+	self.write_command(VDVVRHEN)?; self.write_data(&[0x01])?; // reset default, but 2nd data byte missing (default: 0xff)
 	self.write_command(VRHS)?; self.write_data(&[0x12])?;
-	self.write_command(VDVS)?; self.write_data(&[0x20])?;
-	self.write_command(FRCTRL2)?; self.write_data(&[0x0f])?;
-	self.write_command(PWCTRL1)?; self.write_data(&[0xa4, 0xa1])?;
+	self.write_command(VDVS)?; self.write_data(&[0x20])?; // reset default
+	self.write_command(FRCTRL2)?; self.write_data(&[0x0f])?; // reset default
+	self.write_command(PWCTRL1)?; self.write_data(&[0xa4, 0xa1])?; // reset default
 	self.write_command(PVGAMCTRL)?; self.write_data(&[0xd0, 0x04, 0x0d, 0x11, 0x13, 0x2b, 0x3f, 0x54, 0x4c, 0x18, 0x0d, 0x0b, 0x1f, 0x23])?;
 	self.write_command(NVGAMCTRL)?; self.write_data(&[0xd0, 0x04, 0x0c, 0x11, 0x13, 0x2c, 0x3f, 0x44, 0x51, 0x2f, 0x1f, 0x1f, 0x20, 0x23])?;
 	self.write_command(INVON)?;
