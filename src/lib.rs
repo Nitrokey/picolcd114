@@ -178,21 +178,24 @@ where
     ///
     /// * `sx` - x coordinate start
     /// * `sy` - y coordinate start
-    /// * `ex` - x coordinate end
-    /// * `ey` - y coordinate end
+    /// * `dx` - width
+    /// * `dy` - height
     /// * `data` - u8 slice containing raw pixel data
     ///
     pub fn blit_pixels(
         &mut self,
         sx: u16,
         sy: u16,
-        ex: u16,
-        ey: u16,
+        dx: u16,
+        dy: u16,
         data: &[u8]
     ) -> Result<(), Error<PinE>> {
         use display_interface::DataFormat::U8;
 
-        self.set_address_window(sx, sy, ex, ey)?;
+	if data.len() != (dx*dy*2) as usize {
+		return Err(Error::DisplayError);
+	}
+        self.set_address_window(sx, sy, sx+dx-1, sy+dy-1)?;
         self.write_command(RAMWR)?;
         self.di.send_data(U8(data)).map_err(|_| Error::DisplayError)
     }
