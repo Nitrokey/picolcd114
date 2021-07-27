@@ -1,11 +1,10 @@
 [package]
-name = "st7789"
-description = "ST7789 TFT LCD driver with embedded-graphics support"
-version = "0.100.1"
+name = "picolcd114"
+description = "Waveshare Pico-LCD 1.14 driver (forked from ST7789 TFT LCD driver)"
+version = "0.1.0"
 authors = ["Ales Katona <almindor@gmail.com>", "Paul Sajna <sajattack@gmail.com>", "Jan Nordholz <j.nordholz@tu-berlin.de>"]
 edition = "2018"
 license = "MIT"
-repository = "https://gitlab1.ptb.de/nordholz/st7789.git"
 keywords = ["embedded-hal-driver", "st7789", "display"]
 readme = "README.md"
 
@@ -20,7 +19,7 @@ version = "0.6"
 
 [dependencies.heapless]
 optional = true
-version = "0.5"
+version = "0.6"
 
 [features]
 default = ["graphics", "batch", "buffer"]
