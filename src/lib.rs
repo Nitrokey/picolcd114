@@ -37,7 +37,8 @@ where
     size_y: u16,
     // Offset to 'true origin' position of controller
     off_x: u16,
-    off_y: u16
+    off_y: u16,
+    orientation: Orientation
 }
 
 ///
@@ -47,6 +48,23 @@ where
 pub enum Error<PinE> {
     DisplayError,
     Pin(PinE),
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+enum Orientation {
+    // Portrait
+    Landscape = 0,
+    // PortraitFlipped
+    LandscapeFlipped = 2,
+}
+impl Orientation {
+    fn to_madctl(self) -> u8 {
+        match self {
+            Landscape => 0b0110_0000,		// MV+MX
+            LandscapeFlipped => 0b1010_0000,	// MV+MY
+        }
+    }
 }
 
 impl<DI, RST, PinE> ST7789<DI, RST>
@@ -69,7 +87,8 @@ where
             di,
             rst,
             size_x, size_y,
-            off_x, off_y
+            off_x, off_y,
+            orientation: Orientation::Landscape
         }
     }
 
@@ -82,7 +101,7 @@ where
     ///
     pub fn init(&mut self, delay_source: &mut impl DelayUs<u32>) -> Result<(), Error<PinE>> {
         self.hard_reset(delay_source)?;
-	self.write_command(MADCTL)?; self.write_data(&[0x70])?;
+	self.write_command(MADCTL)?; self.write_data(&[self.orientation.to_madctl()])?;
 	self.write_command(COLMOD)?; self.write_data(&[0x55])?; // 16bpp
 	self.write_command(PORCTRL)?; self.write_data(&[0x0c, 0x0c, 0x00, 0x33, 0x33])?; // reset default
 	self.write_command(GCTRL)?; self.write_data(&[0x35])?; // reset default
@@ -111,11 +130,11 @@ where
     ///
     pub fn hard_reset(&mut self, delay_source: &mut impl DelayUs<u32>) -> Result<(), Error<PinE>> {
         self.rst.set_high().map_err(Error::Pin)?;
-        delay_source.delay_us(10); // ensure the pin change will get registered
+        delay_source.delay_us(100); // ensure the pin change will get registered
         self.rst.set_low().map_err(Error::Pin)?;
-        delay_source.delay_us(10); // ensure the pin change will get registered
+        delay_source.delay_us(100); // ensure the pin change will get registered
         self.rst.set_high().map_err(Error::Pin)?;
-        delay_source.delay_us(10); // ensure the pin change will get registered
+        delay_source.delay_us(1000); // ensure the pin change will get registered
 
         Ok(())
     }
@@ -217,6 +236,18 @@ where
     ///
     pub fn release(self) -> (DI, RST) {
         (self.di, self.rst)
+    }
+
+    pub fn get_orientation(&self) -> u8 {
+        self.orientation as _
+    }
+
+    pub fn flip_view(&mut self) -> Result<(), Error<PinE>> {
+        match self.orientation {
+		Orientation::Landscape => { self.orientation = Orientation::LandscapeFlipped; self.off_y -= 1; }
+		Orientation::LandscapeFlipped => { self.orientation = Orientation::Landscape; self.off_y += 1; }
+	}
+	self.write_command(MADCTL)?; self.write_data(&[self.orientation.to_madctl()])
     }
 
     fn write_command(&mut self, command: instruction::Instruction) -> Result<(), Error<PinE>> {
