@@ -60,10 +60,7 @@ enum Orientation {
 }
 impl Orientation {
     fn to_madctl(self) -> u8 {
-        match self {
-            Landscape => 0b0110_0000,		// MV+MX
-            LandscapeFlipped => 0b1010_0000,	// MV+MY
-        }
+	if self == Self::Landscape { 0x60 } else { 0xa0 }
     }
 }
 
@@ -243,9 +240,10 @@ where
     }
 
     pub fn flip_view(&mut self) -> Result<(), Error<PinE>> {
-        match self.orientation {
-		Orientation::Landscape => { self.orientation = Orientation::LandscapeFlipped; self.off_y -= 1; }
-		Orientation::LandscapeFlipped => { self.orientation = Orientation::Landscape; self.off_y += 1; }
+        if self.orientation == Orientation::Landscape {
+		self.orientation = Orientation::LandscapeFlipped; self.off_y -= 1;
+	} else {
+		self.orientation = Orientation::Landscape; self.off_y += 1;
 	}
 	self.write_command(MADCTL)?; self.write_data(&[self.orientation.to_madctl()])
     }
