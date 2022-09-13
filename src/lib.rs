@@ -118,6 +118,11 @@ where
         Ok(())
     }
 
+    pub fn shutdown(&mut self) -> Result<(), Error<PinE>> {
+	self.write_command(SLPIN)?;
+        Ok(())
+    }
+
     ///
     /// Performs a hard reset using the RST pin sequence
     ///
